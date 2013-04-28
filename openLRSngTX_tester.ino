@@ -101,6 +101,111 @@ void setupPPMinput()
   TIMSK1 |= (1 << ICIE1); // Enable timer1 input capture interrupt
 }
 
+// **** SPI bit banging functions
+#define NOP() __asm__ __volatile__("nop")
+
+#define RF22B_PWRSTATE_POWERDOWN 0x00
+#define RF22B_PWRSTATE_READY 0x01
+#define RF22B_PACKET_SENT_INTERRUPT 0x04
+#define RF22B_PWRSTATE_RX 0x05
+#define RF22B_PWRSTATE_TX 0x09
+
+#define RF22B_Rx_packet_received_interrupt 0x02
+
+uint8_t ItStatus1, ItStatus2;
+
+void spiWriteBit(uint8_t b)
+{
+  if (b) {
+    SCK_off;
+    NOP();
+    SDI_on;
+    NOP();
+    SCK_on;
+    NOP();
+  } else {
+    SCK_off;
+    NOP();
+    SDI_off;
+    NOP();
+    SCK_on;
+    NOP();
+  }
+}
+
+uint8_t spiReadBit(void)
+{
+  uint8_t r = 0;
+  SCK_on;
+  NOP();
+
+  if (SDO_1) {
+    r = 1;
+  }
+
+  SCK_off;
+  NOP();
+  return r;
+}
+
+void spiSendCommand(uint8_t command)
+{
+  nSEL_on;
+  SCK_off;
+  nSEL_off;
+
+  for (uint8_t n = 0; n < 8 ; n++) {
+    spiWriteBit(command & 0x80);
+    command = command << 1;
+  }
+
+  SCK_off;
+}
+
+void spiSendAddress(uint8_t i)
+{
+  spiSendCommand(i & 0x7f);
+}
+
+void spiWriteData(uint8_t i)
+{
+  for (uint8_t n = 0; n < 8; n++) {
+    spiWriteBit(i & 0x80);
+    i = i << 1;
+  }
+
+  SCK_off;
+}
+
+uint8_t spiReadData(void)
+{
+  uint8_t Result = 0;
+  SCK_off;
+
+  for (uint8_t i = 0; i < 8; i++) { //read fifo data byte
+    Result = (Result << 1) + spiReadBit();
+  }
+
+  return(Result);
+}
+
+uint8_t spiReadRegister(uint8_t address)
+{
+  uint8_t result;
+  spiSendAddress(address);
+  result = spiReadData();
+  nSEL_on;
+  return(result);
+}
+
+void spiWriteRegister(uint8_t address, uint8_t data)
+{
+  address |= 0x80; //
+  spiSendCommand(address);
+  spiWriteData(data);
+  nSEL_on;
+}
+
 void setup() {
   Serial.begin(115200); 
   buzzerInit();
@@ -174,6 +279,37 @@ void ppmTest() {
   Serial.println("DONE");
 }
 
+void rfmcomTest() {
+  Serial.println("RFMxx coms test!");
+  uint8_t r0,r1;
+  r0 = spiReadRegister(0);
+  r1 = spiReadRegister(1);
+  Serial.print("RFM id bytes:");
+  Serial.print(r0);
+  Serial.print(',');
+  Serial.println(r1);
+  spiWriteRegister(5,0x55);
+  r0=0;
+  if (0x55 == spiReadRegister(5)) {
+    spiWriteRegister(5,0xaa);
+    if (0xaa == spiReadRegister(5)) {
+      r0=1;
+    }
+  }
+  if (r0) {
+    Serial.println("RFMxx coms test passed!");
+  } else {
+    Serial.println("RFMxx coms test FAILED!");
+  }
+  Serial.println("DONE");
+} 
+
+void rfmintTest() {
+  Serial.println("RFMxx interrupt test!");
+  Serial.println("not implemented yet");
+  Serial.println("DONE");
+} 
+
 void loop() {
   while (!Serial.available());
   char ch=Serial.read();
@@ -191,6 +327,12 @@ void loop() {
       break;
   case '4':
       ppmTest();
+      break;
+  case '5':
+      rfmcomTest();
+      break;
+  case '6':
+      rfmintTest();
       break;
   default:
       break;

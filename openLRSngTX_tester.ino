@@ -305,8 +305,43 @@ void rfmcomTest() {
 } 
 
 void rfmintTest() {
+  uint8_t foo,status=0;
   Serial.println("RFMxx interrupt test!");
-  Serial.println("not implemented yet");
+  // clear any
+  spiWriteRegister(5,0);
+  spiWriteRegister(6,0);
+  foo=spiReadRegister(3);
+  foo=spiReadRegister(4);
+  delay(1);
+  if (nIRQ_0) {
+    Serial.println("Interrupt did not clear?");
+  } else {
+    status=1;
+    spiWriteRegister(6,0x08); // enable WUT interrupt
+    spiWriteRegister(7,0x21); // enable WUT
+    delay(100);
+    if (nIRQ_0) {
+      Serial.println("Interrupt fired");
+      status++;
+    } else {
+      Serial.println("Interrupt did not fire");
+    }      
+  }
+  spiWriteRegister(5,0);
+  spiWriteRegister(6,0);
+  foo=spiReadRegister(3);
+  foo=spiReadRegister(4);
+  delay(1);
+  if (nIRQ_0) {
+    Serial.println("Interrupt did not clear?");
+  } else {
+    status++;
+  }
+  if (status==3) {
+    Serial.println("Interrupt test passed");
+  } else {
+    Serial.println("Interrupt test FAILED");
+  }    
   Serial.println("DONE");
 } 
 

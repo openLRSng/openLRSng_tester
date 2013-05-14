@@ -6,7 +6,7 @@
 // 2 = Original M2/M3 Tx Board or OrangeRx UHF TX
 // 3 = OpenLRS Rx v2 Board works as TX
 // 4 = OpenLRSngTX (tbd.)
-#define HW 4
+#define HW 2
 
 #if (HW==2)
 #define PPM_IN 3
@@ -66,9 +66,8 @@ void buzzerOn(uint16_t freq)
 #define nSel_pin 4
 
 #define IRQ_interrupt 0
-#endif
 
-#if (HW==3)
+#elif (HW==3)
 
 #define USE_ICP1 // use ICP1 for PPM input for less jitter
 
@@ -134,9 +133,7 @@ void buzzerOn(uint16_t freq)
 
 #define IRQ_interrupt 0
 
-#endif
-
-#if (HW==4)
+#elif (HW==4)
 
 #define USE_ICP1 // use ICP1 for PPM input for less jitter
 #define PPM_IN 8 // ICP1
@@ -203,6 +200,8 @@ void buzzerOn(uint16_t freq)
 
 #define IRQ_interrupt 0
 
+#else
+#error invalid HW
 #endif
 
 #define TIMER1_FREQUENCY_HZ 50

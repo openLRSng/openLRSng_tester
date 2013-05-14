@@ -1,4 +1,144 @@
+/*** Tester sketch for openLRS TX modules ***/
 
+#include <Arduino.h>
+
+//####### TX BOARD TYPE #######
+// 2 = Original M2/M3 Tx Board or OrangeRx UHF TX
+// 3 = OpenLRS Rx v2 Board works as TX
+// 4 = OpenLRSngTX (tbd.)
+#define HW 4
+
+#if (HW==2)
+#define PPM_IN 3
+#define RF_OUT_INDICATOR A0
+#define BUZZER 10
+#define BTN 11
+#define Red_LED 13
+#define Green_LED 12
+
+#define Red_LED_ON  PORTB |= _BV(5);
+#define Red_LED_OFF  PORTB &= ~_BV(5);
+
+#define Green_LED_ON   PORTB |= _BV(4);
+#define Green_LED_OFF  PORTB &= ~_BV(4);
+
+#define PPM_Pin_Interrupt_Setup  PCMSK2 = 0x08;PCICR|=(1<<PCIE2);
+#define PPM_Signal_Interrupt PCINT2_vect
+#define PPM_Signal_Edge_Check (PIND & 0x08)==0x08
+
+void buzzerInit()
+{
+  pinMode(BUZZER, OUTPUT);
+  digitalWrite(BUZZER, LOW);
+}
+
+void buzzerOn(uint16_t freq)
+{
+  if (freq) {
+    digitalWrite(BUZZER,HIGH);
+  } else {
+    digitalWrite(BUZZER,LOW);
+  }
+}
+
+#define buzzerOff(foo) buzzerOn(0)
+
+//## RFM22B Pinouts for Public Edition (M2)
+#define  nIRQ_1 (PIND & 0x04)==0x04 //D2
+#define  nIRQ_0 (PIND & 0x04)==0x00 //D2
+
+#define  nSEL_on PORTD |= (1<<4) //D4
+#define  nSEL_off PORTD &= 0xEF //D4
+
+#define  SCK_on PORTD |= (1<<7) //D7
+#define  SCK_off PORTD &= 0x7F //D7
+
+#define  SDI_on PORTB |= (1<<0) //B0
+#define  SDI_off PORTB &= 0xFE //B0
+
+#define  SDO_1 (PINB & 0x02) == 0x02 //B1
+#define  SDO_0 (PINB & 0x02) == 0x00 //B1
+
+#define SDO_pin 9
+#define SDI_pin 8
+#define SCLK_pin 7
+#define IRQ_pin 2
+#define nSel_pin 4
+
+#define IRQ_interrupt 0
+#endif
+
+#if (HW==3)
+
+#define USE_ICP1 // use ICP1 for PPM input for less jitter
+
+#ifdef USE_ICP1
+#define PPM_IN 8 // ICP1
+#else
+#define PPM_IN 3
+#define PPM_Pin_Interrupt_Setup  PCMSK2 = 0x08;PCICR|=(1<<PCIE2);
+#define PPM_Signal_Interrupt PCINT2_vect
+#define PPM_Signal_Edge_Check (PIND & 0x08)==0x08
+#endif
+
+#define BUZZER 6
+#define BTN 7
+
+void buzzerInit()
+{
+  pinMode(BUZZER, OUTPUT);
+  digitalWrite(BUZZER, LOW);
+}
+
+void buzzerOn(uint16_t freq)
+{
+  if (freq) {
+    digitalWrite(BUZZER,HIGH);
+  } else {
+    digitalWrite(BUZZER,LOW);
+  }
+}
+
+#define buzzerOff(foo) buzzerOn(0)
+
+#define Red_LED A3
+#define Green_LED 13
+
+#define Red_LED_ON  PORTC |= _BV(3);
+#define Red_LED_OFF  PORTC &= ~_BV(3);    // Was originally #define Green_LED_OFF  PORTB |= _BV(5);   E.g turns it ON not OFF
+
+#define Green_LED_ON  PORTB |= _BV(5);
+#define Green_LED_OFF  PORTB &= ~_BV(5);
+
+//## RFM22B Pinouts for Public Edition (Rx v2)
+#define  nIRQ_1 (PIND & 0x04)==0x04 //D2
+#define  nIRQ_0 (PIND & 0x04)==0x00 //D2
+
+#define  nSEL_on PORTD |= (1<<4) //D4
+#define  nSEL_off PORTD &= 0xEF //D4
+
+#define  SCK_on PORTC |= (1<<2) //A2
+#define  SCK_off PORTC &= 0xFB //A2
+
+#define  SDI_on PORTC |= (1<<1) //A1
+#define  SDI_off PORTC &= 0xFD //A1
+
+#define  SDO_1 (PINC & 0x01) == 0x01 //A0
+#define  SDO_0 (PINC & 0x01) == 0x00 //A0
+
+#define SDO_pin A0
+#define SDI_pin A1
+#define SCLK_pin A2
+#define IRQ_pin 2
+#define nSel_pin 4
+
+#define IRQ_interrupt 0
+
+#endif
+
+#if (HW==4)
+
+#define USE_ICP1 // use ICP1 for PPM input for less jitter
 #define PPM_IN 8 // ICP1
 
 #define BUZZER 3 // OCR2B
@@ -63,6 +203,8 @@ void buzzerOn(uint16_t freq)
 
 #define IRQ_interrupt 0
 
+#endif
+
 #define TIMER1_FREQUENCY_HZ 50
 #define TIMER1_PRESCALER 8
 #define TIMER1_PERIOD (F_CPU/TIMER1_PRESCALER/TIMER1_FREQUENCY_HZ)
@@ -70,6 +212,8 @@ void buzzerOn(uint16_t freq)
 volatile uint16_t PPM[PPM_CHANNELS] = { 512, 512, 512, 512, 512, 512, 512, 512 };
 volatile uint16_t startPulse = 0;
 volatile uint8_t ppmCounter = PPM_CHANNELS; // ignore data until first sync pulse
+
+#ifdef USE_ICP1 // Use ICP1 in input capture mode
 /****************************************************
 * Interrupt Vector
 ****************************************************/
@@ -100,7 +244,36 @@ void setupPPMinput()
   OCR1A = TIMER1_PERIOD;
   TIMSK1 |= (1 << ICIE1); // Enable timer1 input capture interrupt
 }
+#else // sample PPM using pinchange interrupt
+ISR(PPM_Signal_Interrupt)
+{
+  uint16_t time_temp;
 
+  if (PPM_Signal_Edge_Check) {   // Only works with rising edge of the signal
+    time_temp = TCNT1; // read the timer1 value
+    TCNT1 = 0; // reset the timer1 value for next
+
+    if (time_temp > 5000) {   // new frame detection (>2.5ms)
+      ppmCounter = 0;             // -> restart the channel counter
+    } else if ((time_temp > 1400) && (ppmCounter < PPM_CHANNELS)) {
+      PPM[ppmCounter] = (time_temp / 2);   // Store measured pulse length (converted)
+      ppmCounter++;                     // Advance to next channel
+    } else {
+      ppmCounter = PPM_CHANNELS; // glitch ignore rest of data
+    }
+  }
+}
+
+void setupPPMinput(void)
+{
+  // Setup timer1 for input capture (PSC=8 -> 0.5ms precision, top at 20ms)
+  TCCR1A = ((1 << WGM10) | (1 << WGM11));
+  TCCR1B = ((1 << WGM12) | (1 << WGM13) | (1 << CS11));
+  OCR1A = TIMER1_PERIOD;
+  TIMSK1 = 0;
+  PPM_Pin_Interrupt_Setup
+}
+#endif
 // **** SPI bit banging functions
 #define NOP() __asm__ __volatile__("nop")
 

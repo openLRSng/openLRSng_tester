@@ -6,7 +6,7 @@
 // 2 = Original M2/M3 Tx Board or OrangeRx UHF TX
 // 3 = OpenLRS Rx v2 Board works as TX
 // 4 = OpenLRSngTX (tbd.)
-#define HW 2
+#define HW 4
 
 #if (HW==2)
 #define PPM_IN 3
@@ -517,6 +517,91 @@ void rfmintTest() {
   Serial.println("DONE");
 } 
 
+void beacon_tone(int16_t hz, int16_t len)
+{
+  int16_t d = 500 / hz; // somewhat limited resolution ;)
+
+  if (d < 1) {
+    d = 1;
+  }
+
+  int16_t cycles = (len * 1000 / d);
+
+  for (int16_t i = 0; i < cycles; i++) {
+    SDI_on;
+    delay(d);
+    SDI_off;
+    delay(d);
+  }
+}
+
+void rfmSetCarrierFrequency(uint32_t f)
+{
+  uint16_t fb, fc, hbsel;
+  if (f < 480000000) {
+    hbsel = 0;
+    fb = f / 10000000 - 24;
+    fc = (f - (fb + 24) * 10000000) * 4 / 625;
+  } else {
+    hbsel = 1;
+    fb = f / 20000000 - 24;
+    fc = (f - (fb + 24) * 20000000) * 2 / 625;
+  }
+  spiWriteRegister(0x75, 0x40 + (hbsel?0x20:0) + (fb & 0x1f));
+  spiWriteRegister(0x76, (fc >> 8));
+  spiWriteRegister(0x77, (fc & 0xff));
+}
+
+void TX_test(uint8_t power)
+{
+  Serial.print("TX ON at powerlevel ");
+  Serial.println(power&7);
+  Green_LED_ON
+  ItStatus1 = spiReadRegister(0x03);   // read status, clear interrupt
+  ItStatus2 = spiReadRegister(0x04);
+  spiWriteRegister(0x06, 0x00);    // no wakeup up, lbd,
+  spiWriteRegister(0x07, RF22B_PWRSTATE_READY);      // disable lbd, wakeup timer, use internal 32768,xton = 1; in ready mode
+  spiWriteRegister(0x09, 0x7f);  // (default) c = 12.5p
+  spiWriteRegister(0x0a, 0x05);
+#if (HW==4)
+  spiWriteRegister(0x0b, 0x15);    // gpio0 TX State
+  spiWriteRegister(0x0c, 0x12);    // gpio1 RX State
+#else
+  spiWriteRegister(0x0b, 0x12);    // gpio0 TX State
+  spiWriteRegister(0x0c, 0x15);    // gpio1 RX State
+#endif
+  spiWriteRegister(0x0d, 0xfd);    // gpio 2 micro-controller clk output
+  spiWriteRegister(0x0e, 0x00);    // gpio    0, 1,2 NO OTHER FUNCTION.
+
+  spiWriteRegister(0x70, 0x2C);    // disable manchest
+
+  spiWriteRegister(0x30, 0x00);    //disable packet handling
+
+  spiWriteRegister(0x79, 0);    // start channel
+
+  spiWriteRegister(0x7a, 0x05);   // 50khz step size (10khz x value) // no hopping
+
+  spiWriteRegister(0x71, 0x12);   // trclk=[00] no clock, dtmod=[01] direct using SPI, fd8=0 eninv=0 modtyp=[10] FSK
+  spiWriteRegister(0x72, 0x02);   // fd (frequency deviation) 2*625Hz == 1.25kHz
+
+  spiWriteRegister(0x73, 0x00);
+  spiWriteRegister(0x74, 0x00);    // no offset
+
+  rfmSetCarrierFrequency(435000000);
+
+  spiWriteRegister(0x6d, power & 0x07);
+
+  delay(10);
+  spiWriteRegister(0x07, RF22B_PWRSTATE_TX);    // to tx mode
+  delay(10);
+  beacon_tone(500, 5);
+
+  spiWriteRegister(0x07, RF22B_PWRSTATE_READY);
+  Green_LED_OFF
+  Serial.println("DONE");
+}
+
+
 void loop() {
   while (!Serial.available());
   char ch=Serial.read();
@@ -540,6 +625,9 @@ void loop() {
       break;
   case '6':
       rfmintTest();
+      break;
+  case '9':
+      TX_test(7);
       break;
   default:
       break;

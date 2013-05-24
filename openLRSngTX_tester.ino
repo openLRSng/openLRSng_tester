@@ -601,6 +601,112 @@ void TX_test(uint8_t power)
   Serial.println("DONE");
 }
 
+struct rfm22_modem_regs {
+  uint32_t bps;
+  uint8_t  r_1c, r_1d, r_1e, r_20, r_21, r_22, r_23, r_24, r_25, r_2a, r_6e, r_6f, r_70, r_71, r_72;
+};
+
+struct rfm22_modem_regs bind_params =
+{ 9600, 0x05, 0x40, 0x0a, 0xa1, 0x20, 0x4e, 0xa5, 0x00, 0x20, 0x24, 0x4e, 0xa5, 0x2c, 0x23, 0x30 };
+
+void setModemRegs(struct rfm22_modem_regs* r)
+{
+
+  spiWriteRegister(0x1c, r->r_1c);
+  spiWriteRegister(0x1d, r->r_1d);
+  spiWriteRegister(0x1e, r->r_1e);
+  spiWriteRegister(0x20, r->r_20);
+  spiWriteRegister(0x21, r->r_21);
+  spiWriteRegister(0x22, r->r_22);
+  spiWriteRegister(0x23, r->r_23);
+  spiWriteRegister(0x24, r->r_24);
+  spiWriteRegister(0x25, r->r_25);
+  spiWriteRegister(0x2a, r->r_2a);
+  spiWriteRegister(0x6e, r->r_6e);
+  spiWriteRegister(0x6f, r->r_6f);
+  spiWriteRegister(0x70, r->r_70);
+  spiWriteRegister(0x71, r->r_71);
+  spiWriteRegister(0x72, r->r_72);
+}
+
+void init_rfm()
+{
+  ItStatus1 = spiReadRegister(0x03);   // read status, clear interrupt
+  ItStatus2 = spiReadRegister(0x04);
+  spiWriteRegister(0x06, 0x00);    // disable interrupts
+  spiWriteRegister(0x07, RF22B_PWRSTATE_READY); // disable lbd, wakeup timer, use internal 32768,xton = 1; in ready mode
+  spiWriteRegister(0x09, 0x7f);   // c = 12.5p
+  spiWriteRegister(0x0a, 0x05);
+#if (HW==4)
+  spiWriteRegister(0x0b, 0x15);    // gpio0 RX State
+  spiWriteRegister(0x0c, 0x12);    // gpio1 TX State
+#else
+  spiWriteRegister(0x0b, 0x12);    // gpio0 TX State
+  spiWriteRegister(0x0c, 0x15);    // gpio1 RX State
+#endif
+  spiWriteRegister(0x0d, 0xfd);    // gpio 2 micro-controller clk output
+  spiWriteRegister(0x0e, 0x00);    // gpio    0, 1,2 NO OTHER FUNCTION.
+
+  setModemRegs(&bind_params);
+
+  // Packet settings
+  spiWriteRegister(0x30, 0x8c);    // enable packet handler, msb first, enable crc,
+  spiWriteRegister(0x32, 0x0f);    // no broadcast, check header bytes 3,2,1,0
+  spiWriteRegister(0x33, 0x42);    // 4 byte header, 2 byte synch, variable pkt size
+  spiWriteRegister(0x34, 0x0a);    // 10 nibbles (40 bit preamble)
+  spiWriteRegister(0x35, 0x2a);    // preath = 5 (20bits), rssioff = 2
+  spiWriteRegister(0x36, 0x2d);    // synchronize word 3
+  spiWriteRegister(0x37, 0xd4);    // synchronize word 2
+  spiWriteRegister(0x38, 0x00);    // synch word 1 (not used)
+  spiWriteRegister(0x39, 0x00);    // synch word 0 (not used)
+
+  for (uint8_t i=0; i<4; i++) {
+    spiWriteRegister(0x3a + i, i * 0x11);   // tx header
+    spiWriteRegister(0x3f + i, i * 0x11);   // rx header
+  }
+
+  spiWriteRegister(0x43, 0xff);    // all the bit to be checked
+  spiWriteRegister(0x44, 0xff);    // all the bit to be checked
+  spiWriteRegister(0x45, 0xff);    // all the bit to be checked
+  spiWriteRegister(0x46, 0xff);    // all the bit to be checked
+
+  spiWriteRegister(0x6d, 7);
+
+  spiWriteRegister(0x79, 0);
+
+  spiWriteRegister(0x7a, 1);   // channel spacing
+
+  spiWriteRegister(0x73, 0x00);
+  spiWriteRegister(0x74, 0x00);    // no offset
+
+  rfmSetCarrierFrequency(435000000);
+
+}
+
+void tx_packet(uint8_t* pkt, uint8_t size)
+{
+
+  spiWriteRegister(0x3e, size);   // total tx size
+
+  for (uint8_t i = 0; i < size; i++) {
+    spiWriteRegister(0x7f, pkt[i]);
+  }
+
+  spiWriteRegister(0x05, RF22B_PACKET_SENT_INTERRUPT);
+  ItStatus1 = spiReadRegister(0x03);      //read the Interrupt Status1 register
+  ItStatus2 = spiReadRegister(0x04);
+  uint32_t tx_start = micros();
+  spiWriteRegister(0x07, RF22B_PWRSTATE_TX);    // to tx mode
+
+  while ((nIRQ_1) & ((micros() - tx_start)<100000));
+  if (nIRQ_1) {
+    Serial.println("TX timeout!!!!");
+  }
+  spiWriteRegister(0x07, RF22B_PWRSTATE_READY);
+  Serial.print("TX took:");
+  Serial.println(micros() - tx_start);
+}
+
 
 void loop() {
   while (!Serial.available());
@@ -625,6 +731,10 @@ void loop() {
       break;
   case '6':
       rfmintTest();
+      break;
+  case '8':
+      init_rfm();
+      tx_packet((uint8_t *)"AABBCCDDEEFF",12);
       break;
   case '9':
       TX_test(7);

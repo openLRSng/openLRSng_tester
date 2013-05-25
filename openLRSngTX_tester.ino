@@ -698,10 +698,17 @@ void tx_packet(uint8_t* pkt, uint8_t size)
   uint32_t tx_start = micros();
   spiWriteRegister(0x07, RF22B_PWRSTATE_TX);    // to tx mode
 
-  while ((nIRQ_1) & ((micros() - tx_start)<100000));
+  while ((nIRQ_1) && ((micros() - tx_start)<100000));
   if (nIRQ_1) {
     Serial.println("TX timeout!!!!");
+    ItStatus1 = spiReadRegister(0x03);      //read the Interrupt Status1 register
+    ItStatus2 = spiReadRegister(0x04);
+    Serial.print("Status regs are: 0x");
+    Serial.print(ItStatus1,16);
+    Serial.print(" 0x");
+    Serial.println(ItStatus2,16);
   }
+  
   spiWriteRegister(0x07, RF22B_PWRSTATE_READY);
   Serial.print("TX took:");
   Serial.println(micros() - tx_start);
@@ -733,8 +740,10 @@ void loop() {
       rfmintTest();
       break;
   case '8':
+      Green_LED_ON
       init_rfm();
       tx_packet((uint8_t *)"AABBCCDDEEFF",12);
+      Green_LED_OFF
       break;
   case '9':
       TX_test(7);

@@ -601,6 +601,55 @@ void TX_test(uint8_t power)
   Serial.println("DONE");
 }
 
+void rx_reset(void)
+{
+  spiWriteRegister(0x07, RF22B_PWRSTATE_READY);
+  spiWriteRegister(0x7e, 36);    // threshold for rx almost full, interrupt when 1 byte received
+  spiWriteRegister(0x08, 0x03);    //clear fifo disable multi packet
+  spiWriteRegister(0x08, 0x00);    // clear fifo, disable multi packet
+  spiWriteRegister(0x07, RF22B_PWRSTATE_RX);   // to rx mode
+  spiWriteRegister(0x05, RF22B_Rx_packet_received_interrupt);
+  ItStatus1 = spiReadRegister(0x03);   //read the Interrupt Status1 register
+  ItStatus2 = spiReadRegister(0x04);
+}
+
+void to_rx_mode(void)
+{
+  ItStatus1 = spiReadRegister(0x03);
+  ItStatus2 = spiReadRegister(0x04);
+  spiWriteRegister(0x07, RF22B_PWRSTATE_READY);
+  delay(10);
+  rx_reset();
+  NOP();
+}
+
+uint8_t rfmGetRSSI(void)
+{
+  return spiReadRegister(0x26);
+}
+
+void rssiTest(void)
+{
+  Serial.println("RSSI test");
+
+  while (Serial.available()) {
+    Serial.read();
+  }
+
+  to_rx_mode();
+
+  spiWriteRegister(0x1c, 0x12);   // 41.7kHz
+  rfmSetCarrierFrequency(435000000);
+  while (!Serial.available()) {
+    Serial.println(rfmGetRSSI());
+    delay(100);
+  }
+  spiWriteRegister(0x07, RF22B_PWRSTATE_READY);
+
+  //never exit!!
+}
+
+
 struct rfm22_modem_regs {
   uint32_t bps;
   uint8_t  r_1c, r_1d, r_1e, r_20, r_21, r_22, r_23, r_24, r_25, r_2a, r_6e, r_6f, r_70, r_71, r_72;
@@ -738,6 +787,9 @@ void loop() {
       break;
   case '6':
       rfmintTest();
+      break;
+  case '7':
+      rssiTest();
       break;
   case '8':
       Green_LED_ON

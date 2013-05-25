@@ -750,12 +750,12 @@ void tx_packet(uint8_t* pkt, uint8_t size)
   while ((nIRQ_1) && ((micros() - tx_start)<100000));
   if (nIRQ_1) {
     Serial.println("TX timeout!!!!");
-    ItStatus1 = spiReadRegister(0x03);      //read the Interrupt Status1 register
-    ItStatus2 = spiReadRegister(0x04);
-    Serial.print("Status regs are: 0x");
-    Serial.print(ItStatus1,16);
-    Serial.print(" 0x");
-    Serial.println(ItStatus2,16);
+    Serial.print("Status regs are: 2=0x");
+    Serial.print(spiReadRegister(0x02),16);
+    Serial.print(" 3=0x");
+    Serial.print(spiReadRegister(0x03),16);
+    Serial.print(" 4=0x");
+    Serial.println(spiReadRegister(0x04),16);
   }
   
   spiWriteRegister(0x07, RF22B_PWRSTATE_READY);

@@ -81,20 +81,35 @@ void buzzerOn(uint16_t freq)
 #endif
 
 #define BUZZER 6
+#define BUZZER2 3
 #define BTN 7
 
 void buzzerInit()
 {
   pinMode(BUZZER, OUTPUT);
   digitalWrite(BUZZER, LOW);
+  TCCR2A = (1<<WGM21); // mode=CTC
+  TCCR2B = (1<<CS22) | (1<<CS20); // prescaler = 128
+  pinMode(BUZZER2, OUTPUT);
+  digitalWrite(BUZZER2, LOW);
 }
 
 void buzzerOn(uint16_t freq)
 {
   if (freq) {
     digitalWrite(BUZZER,HIGH);
+    uint32_t ocr = 125000L / freq;
+    if (ocr>255) {
+      ocr=255;
+    }
+    if (!ocr) {
+      ocr=1;
+    }
+    OCR2A = ocr;
+    TCCR2A |= (1<<COM2B0); // enable output on buzzer2
   } else {
     digitalWrite(BUZZER,LOW);
+    TCCR2A &= ~(1<<COM2B0); // disable output buzzer2
   }
 }
 
@@ -102,12 +117,13 @@ void buzzerOn(uint16_t freq)
 
 #define Red_LED A3
 #define Green_LED 13
+#define Red_LED2   9
+#define Green_LED2 10
 
-#define Red_LED_ON  PORTC |= _BV(3);
-#define Red_LED_OFF  PORTC &= ~_BV(3);    // Was originally #define Green_LED_OFF  PORTB |= _BV(5);   E.g turns it ON not OFF
-
-#define Green_LED_ON  PORTB |= _BV(5);
-#define Green_LED_OFF  PORTB &= ~_BV(5);
+#define Red_LED_ON  { PORTC |= _BV(3); PORTB |= _BV(1); }
+#define Red_LED_OFF { PORTC &= ~_BV(3); PORTB &= ~_BV(1); }
+#define Green_LED_ON  PORTB |= (_BV(5) | _BV(2));
+#define Green_LED_OFF PORTB &= ~(_BV(5) | _BV(2));
 
 //## RFM22B Pinouts for Public Edition (Rx v2)
 #define  nIRQ_1 (PIND & 0x04)==0x04 //D2
@@ -384,6 +400,10 @@ void setup() {
 
   pinMode(Red_LED,OUTPUT);
   pinMode(Green_LED,OUTPUT);
+#ifdef Red_LED2
+  pinMode(Red_LED2,OUTPUT);
+  pinMode(Green_LED2,OUTPUT);
+#endif
    
   pinMode(BTN,INPUT);
   digitalWrite(BTN,HIGH); //enable pullup 

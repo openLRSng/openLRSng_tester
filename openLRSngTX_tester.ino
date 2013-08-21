@@ -763,6 +763,17 @@ void tx_packet(uint8_t* pkt, uint8_t size)
   Serial.println(micros() - tx_start);
 }
 
+void help() {
+  Serial.println("1 - buzzer test");
+  Serial.println("2 - LED test (red/both/green/off)");
+  Serial.println("3 - button test");
+  Serial.println("4 - PPM input test");
+  Serial.println("5 - RFMxx SPI test");
+  Serial.println("6 - RFMxx interrupt test");
+  Serial.println("7 - RFMxx RSSI read test");
+  Serial.println("8 - RFMxx packet transmit test (make sure you have antenna connected!)");
+  Serial.println("9 - RFMxx continous transmit (beacon) test (MAKE SURE YOU HAVE ANTENNA CONNECTED!)");
+}
 
 void loop() {
   while (!Serial.available());
@@ -801,6 +812,7 @@ void loop() {
       TX_test(7);
       break;
   default:
+      help();
       break;
   }
 }

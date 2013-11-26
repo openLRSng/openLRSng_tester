@@ -223,8 +223,8 @@ void buzzerOn(uint16_t freq)
 #define TIMER1_FREQUENCY_HZ 50
 #define TIMER1_PRESCALER 8
 #define TIMER1_PERIOD (F_CPU/TIMER1_PRESCALER/TIMER1_FREQUENCY_HZ)
-#define PPM_CHANNELS 8
-volatile uint16_t PPM[PPM_CHANNELS] = { 512, 512, 512, 512, 512, 512, 512, 512 };
+#define PPM_CHANNELS 16
+volatile uint16_t PPM[PPM_CHANNELS] = { 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512 };
 volatile uint16_t startPulse = 0;
 volatile uint8_t ppmCounter = PPM_CHANNELS; // ignore data until first sync pulse
 

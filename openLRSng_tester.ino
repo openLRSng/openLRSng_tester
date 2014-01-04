@@ -164,7 +164,7 @@ void buzzerInit()
   TCCR2A = (1<<WGM21); // mode=CTC
   TCCR2B = (1<<CS22) | (1<<CS20); // prescaler = 128
   pinMode(BUZZER, OUTPUT);
-  digitalWrite(BUZZER, LOW);
+  digitalWrite(BUZZER, HIGH);
 }
 
 void buzzerOn(uint16_t freq)

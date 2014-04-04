@@ -396,7 +396,7 @@ void spiWriteRegister(uint8_t address, uint8_t data)
 }
 
 void setup() {
-  Serial.begin(115200); 
+  Serial.begin(115200);
   buzzerInit();
 
   pinMode(Red_LED,OUTPUT);
@@ -405,12 +405,12 @@ void setup() {
   pinMode(Red_LED2,OUTPUT);
   pinMode(Green_LED2,OUTPUT);
 #endif
-   
+
   pinMode(BTN,INPUT);
-  digitalWrite(BTN,HIGH); //enable pullup 
-  
+  digitalWrite(BTN,HIGH); //enable pullup
+
   pinMode(PPM_IN,INPUT);
-  digitalWrite(PPM_IN,HIGH); //enable pullup 
+  digitalWrite(PPM_IN,HIGH); //enable pullup
 
   pinMode(SDO_pin, INPUT);
   pinMode(SDI_pin, OUTPUT);
@@ -431,11 +431,11 @@ void buzzerTest() {
   Serial.println("Buzzer test!");
   buzzerOn(2000);
   delay(500);
-  buzzerOn(1000);  
+  buzzerOn(1000);
   delay(500);
-  buzzerOn(500);  
+  buzzerOn(500);
   delay(500);
-  buzzerOff();  
+  buzzerOff();
   Serial.println("DONE");
 }
 
@@ -459,7 +459,7 @@ void btnTest() {
     if (oldbtn!=newbtn) {
       Serial.println(newbtn?"BTN UP":"BTN DOWN");
       oldbtn=newbtn;
-    } 
+    }
   }
   Serial.println("DONE");
 }
@@ -470,7 +470,7 @@ void ppmTest() {
     for (int c=0; c<PPM_CHANNELS;c++) {
       Serial.print(PPM[c]);
       Serial.print(',');
-    }      
+    }
     Serial.println();
   }
   Serial.println("DONE");
@@ -499,7 +499,7 @@ void rfmcomTest() {
     Serial.println("RFMxx coms test FAILED!");
   }
   Serial.println("DONE");
-} 
+}
 
 void rfmintTest() {
   uint8_t foo,status=0;
@@ -522,7 +522,7 @@ void rfmintTest() {
       status++;
     } else {
       Serial.println("Interrupt did not fire");
-    }      
+    }
   }
   spiWriteRegister(5,0);
   spiWriteRegister(6,0);
@@ -538,9 +538,9 @@ void rfmintTest() {
     Serial.println("Interrupt test passed");
   } else {
     Serial.println("Interrupt test FAILED");
-  }    
+  }
   Serial.println("DONE");
-} 
+}
 
 void beacon_tone(int16_t hz, int16_t len)
 {
@@ -782,7 +782,7 @@ void tx_packet(uint8_t* pkt, uint8_t size)
     Serial.print(" 4=0x");
     Serial.println(spiReadRegister(0x04),16);
   }
-  
+
   spiWriteRegister(0x07, RF22B_PWRSTATE_READY);
   Serial.print("TX took:");
   Serial.println(micros() - tx_start);

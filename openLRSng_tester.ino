@@ -3,12 +3,67 @@
 #include <Arduino.h>
 
 //####### TX BOARD TYPE #######
+// 0 = Original M1 TX from Flytron
 // 2 = Original M2/M3 Tx Board or OrangeRx UHF TX
 // 3 = OpenLRS Rx v2 Board works as TX
 // 4 = OpenLRSngTX (tbd.)
 #define HW 4
 
-#if (HW==2)
+#if (HW==0)
+#define PPM_IN           A5
+#define RF_OUT_INDICATOR A4
+#define BUZZER           9
+#define BTN              10
+#define PPM_Pin_Interrupt_Setup  PCMSK1 = 0x20;PCICR|=(1<<PCIE1);
+#define PPM_Signal_Interrupt PCINT1_vect
+#define PPM_Signal_Edge_Check ((PINC & 0x20)==0x20)
+
+void buzzerInit()
+{
+  pinMode(BUZZER_ACT, OUTPUT);
+  digitalWrite(BUZZER_ACT, LOW);
+}
+
+void buzzerOn(uint16_t freq)
+{
+  if (freq) {
+    digitalWrite(BUZZER_ACT,HIGH);
+  } else {
+    digitalWrite(BUZZER_ACT,LOW);
+  }
+}
+
+#define buzzerOff(foo) buzzerOn(0)
+#define Red_LED    12
+#define Green_LED  11
+
+#define Red_LED_ON  PORTB |= _BV(4);
+#define Red_LED_OFF  PORTB &= ~_BV(4);
+
+#define Green_LED_ON   PORTB |= _BV(3);
+#define Green_LED_OFF  PORTB &= ~_BV(3);
+
+//## RFM22B Pinouts for Public Edition (M1 or Rx v1)
+#define  nIRQ_1 (PIND & 0x08)==0x08 //D3
+#define  nIRQ_0 (PIND & 0x08)==0x00 //D3
+
+#define  nSEL_on PORTD |= (1<<4) //D4                                                                                                                                                   #define  nSEL_off PORTD &= 0xEF //D4
+
+#define  SCK_on PORTD |= (1<<2) //D2                                                                                                                                                    #define  SCK_off PORTD &= 0xFB //D2
+
+#define  SDI_on PORTC |= (1<<1) //C1                                                                                                                                                    #define  SDI_off PORTC &= 0xFD //C1
+
+#define  SDO_1 (PINC & 0x01) == 0x01 //C0                                                                                                                                               #define  SDO_0 (PINC & 0x01) == 0x00 //C0
+
+#define SDO_pin A0
+#define SDI_pin A1
+#define SCLK_pin 2
+#define IRQ_pin 3
+#define nSel_pin 4
+
+#define IRQ_interrupt 1
+
+#elif (HW==2)
 #define PPM_IN 3
 #define RF_OUT_INDICATOR A0
 #define BUZZER 10
@@ -395,7 +450,7 @@ void spiWriteRegister(uint8_t address, uint8_t data)
 }
 
 void setup() {
-  Serial.begin(115200); 
+  Serial.begin(115200);
   buzzerInit();
 
   pinMode(Red_LED,OUTPUT);
@@ -404,12 +459,12 @@ void setup() {
   pinMode(Red_LED2,OUTPUT);
   pinMode(Green_LED2,OUTPUT);
 #endif
-   
+
   pinMode(BTN,INPUT);
-  digitalWrite(BTN,HIGH); //enable pullup 
-  
+  digitalWrite(BTN,HIGH); //enable pullup
+
   pinMode(PPM_IN,INPUT);
-  digitalWrite(PPM_IN,HIGH); //enable pullup 
+  digitalWrite(PPM_IN,HIGH); //enable pullup
 
   pinMode(SDO_pin, INPUT);
   pinMode(SDI_pin, OUTPUT);
@@ -426,11 +481,11 @@ void buzzerTest() {
   Serial.println("Buzzer test!");
   buzzerOn(2000);
   delay(500);
-  buzzerOn(1000);  
+  buzzerOn(1000);
   delay(500);
-  buzzerOn(500);  
+  buzzerOn(500);
   delay(500);
-  buzzerOff();  
+  buzzerOff();
   Serial.println("DONE");
 }
 
@@ -454,7 +509,7 @@ void btnTest() {
     if (oldbtn!=newbtn) {
       Serial.println(newbtn?"BTN UP":"BTN DOWN");
       oldbtn=newbtn;
-    } 
+    }
   }
   Serial.println("DONE");
 }
@@ -465,7 +520,7 @@ void ppmTest() {
     for (int c=0; c<PPM_CHANNELS;c++) {
       Serial.print(PPM[c]);
       Serial.print(',');
-    }      
+    }
     Serial.println();
   }
   Serial.println("DONE");
@@ -494,7 +549,7 @@ void rfmcomTest() {
     Serial.println("RFMxx coms test FAILED!");
   }
   Serial.println("DONE");
-} 
+}
 
 void rfmintTest() {
   uint8_t foo,status=0;
@@ -517,7 +572,7 @@ void rfmintTest() {
       status++;
     } else {
       Serial.println("Interrupt did not fire");
-    }      
+    }
   }
   spiWriteRegister(5,0);
   spiWriteRegister(6,0);
@@ -533,9 +588,9 @@ void rfmintTest() {
     Serial.println("Interrupt test passed");
   } else {
     Serial.println("Interrupt test FAILED");
-  }    
+  }
   Serial.println("DONE");
-} 
+}
 
 void beacon_tone(int16_t hz, int16_t len)
 {
@@ -777,7 +832,7 @@ void tx_packet(uint8_t* pkt, uint8_t size)
     Serial.print(" 4=0x");
     Serial.println(spiReadRegister(0x04),16);
   }
-  
+
   spiWriteRegister(0x07, RF22B_PWRSTATE_READY);
   Serial.print("TX took:");
   Serial.println(micros() - tx_start);

@@ -268,6 +268,7 @@ void buzzerOn(uint16_t freq)
 #define SCLK_pin 13
 #define IRQ_pin 2
 #define nSel_pin 4
+#define SDN_pin 9
 
 #define IRQ_interrupt 0
 
@@ -471,6 +472,10 @@ void setup() {
   pinMode(SCLK_pin, OUTPUT);
   pinMode(nSel_pin, OUTPUT);
   pinMode(IRQ_pin, INPUT);
+#ifdef SDN_pin
+  pinMode(SDN_pin, OUTPUT);
+  digitalWrite(SDN_pin, LOW);
+#endif
   nSEL_on;
 
   setupPPMinput();
